@@ -3,7 +3,7 @@
 $config = include 'config.php';
 
 // 2. Obtener parámetros
-$readModes   = $config['read_mode']      ?? ['directory']; // Puede ser ['directory','txt'], etc.
+$readModes   = $config['read_mode']      ?? ['directory'];
 $directory   = $config['cert_directory'] ?? 'certificados/';
 $domainsFile = $config['domains_file']   ?? 'domains.txt';
 
@@ -16,13 +16,15 @@ $expired  = 0;
 /**
  * Analiza un certificado local (archivo .cer).
  * Devuelve [status, fechaExpiración, estadoCss].
+ * Recibe $config para leer 'prox_expir'.
  */
-function getLocalCertificateInfo($certPath)
+function getLocalCertificateInfo($certPath, $config)
 {
     $certContent = file_get_contents($certPath);
     if ($certContent === false) {
         return ["Error al leer el certificado.", "N/A", "error"];
     }
+
     $cert = openssl_x509_parse($certContent);
     if ($cert === false) {
         return ["Error al parsear el certificado.", "N/A", "error"];
@@ -33,10 +35,13 @@ function getLocalCertificateInfo($certPath)
     $validTo = date('d/m/Y', $validToTimestamp);
     $daysToExpire = ($validToTimestamp - $now) / (60 * 60 * 24);
 
+    // Obtenemos el umbral definido en config.php (por defecto 45)
+    $umbral = $config['prox_expir'] ?? 45;
+
     if ($validToTimestamp < $now) {
         $daysSinceExpired = abs(floor($daysToExpire));
         return ["Caducado (hace {$daysSinceExpired} días)", $validTo, "expired"];
-    } elseif ($daysToExpire <= 45) {
+    } elseif ($daysToExpire <= $umbral) {
         $daysToExpireRounded = ceil($daysToExpire);
         return ["Próxima caducidad (en {$daysToExpireRounded} días)", $validTo, "expiring"];
     } else {
@@ -48,10 +53,10 @@ function getLocalCertificateInfo($certPath)
 /**
  * Analiza un certificado remoto (conectando por SSL a un dominio).
  * Devuelve [status, fechaExpiración, estadoCss].
+ * Recibe $config para leer 'prox_expir'.
  */
-function getRemoteCertificateInfo($domain)
+function getRemoteCertificateInfo($domain, $config)
 {
-    // Quitar "https://" si viniera y quedarnos con el host
     $host = parse_url($domain, PHP_URL_HOST) ?: $domain;
 
     $context = stream_context_create(["ssl" => ["capture_peer_cert" => true]]);
@@ -79,10 +84,12 @@ function getRemoteCertificateInfo($domain)
     $validTo = date('d/m/Y', $validToTimestamp);
     $daysToExpire = ($validToTimestamp - $now) / (60 * 60 * 24);
 
+    $umbral = $config['prox_expir'] ?? 45;
+
     if ($validToTimestamp < $now) {
         $daysSinceExpired = abs(floor($daysToExpire));
         return ["Caducado (hace {$daysSinceExpired} días)", $validTo, "expired"];
-    } elseif ($daysToExpire <= 45) {
+    } elseif ($daysToExpire <= $umbral) {
         $daysToExpireRounded = ceil($daysToExpire);
         return ["Próxima caducidad (en {$daysToExpireRounded} días)", $validTo, "expiring"];
     } else {
@@ -94,52 +101,38 @@ function getRemoteCertificateInfo($domain)
 // ==============================================================================
 // 4. Agrupar certificados LOCALES (carpeta raíz + subcarpetas)
 // ==============================================================================
+$localCategories = [];
+$localCategories['RAIZ'] = []; // Para .cer de la carpeta principal
 
-$localCategories = []; 
-// Por convención, guardaremos los .cer de la carpeta raíz bajo la "categoría" 'RAIZ'
-$localCategories['RAIZ'] = [];
-
-// 4a. Si en $readModes existe 'directory', procesamos la carpeta base
 if (in_array('directory', $readModes)) {
     if (!is_dir($directory)) {
         die("Error: la carpeta '{$directory}' no existe o no es válida.");
     }
 
-    // 4a1. Buscar archivos .cer en la carpeta RAÍZ, sin meternos aún en subcarpetas
+    // Escanear la carpeta base en busca de .cer sueltos
     $rootItems = array_diff(scandir($directory), ['.', '..']);
-    // Filtrar .cer
     $rootCer = array_filter($rootItems, function($f) use ($directory) {
-        // Ruta completa
         $fullPath = $directory . DIRECTORY_SEPARATOR . $f;
-        return is_file($fullPath) 
-               && pathinfo($fullPath, PATHINFO_EXTENSION) === 'cer';
+        return is_file($fullPath) && pathinfo($fullPath, PATHINFO_EXTENSION) === 'cer';
     });
-
     foreach ($rootCer as $cerFile) {
         $fullPath = $directory . DIRECTORY_SEPARATOR . $cerFile;
-        $localCategories['RAIZ'][] = $fullPath; 
+        $localCategories['RAIZ'][] = $fullPath;
     }
 
-    // 4a2. Buscar subcarpetas
+    // Escanear subcarpetas
     foreach ($rootItems as $possibleDir) {
         $subPath = $directory . DIRECTORY_SEPARATOR . $possibleDir;
-        if (!is_dir($subPath)) {
-            continue;
-        }
-        if ($possibleDir === '.' || $possibleDir === '..') {
-            continue;
-        }
+        if (!is_dir($subPath)) continue;
+        if ($possibleDir === '.' || $possibleDir === '..') continue;
 
-        // Nombre de la subcarpeta = categoría
         $categoryName = $possibleDir;
         $localCategories[$categoryName] = [];
 
-        // Buscar .cer dentro de la subcarpeta
         $subItems = array_diff(scandir($subPath), ['.', '..']);
         $cerInSub = array_filter($subItems, function($f) use ($subPath) {
             $fp = $subPath . DIRECTORY_SEPARATOR . $f;
-            return is_file($fp) 
-                   && pathinfo($fp, PATHINFO_EXTENSION) === 'cer';
+            return is_file($fp) && pathinfo($fp, PATHINFO_EXTENSION) === 'cer';
         });
 
         foreach ($cerInSub as $cerFile) {
@@ -150,10 +143,9 @@ if (in_array('directory', $readModes)) {
 }
 
 // ==============================================================================
-// 4b. Leer dominios REMOTOS (fichero .txt), como antes
+// 5. Leer dominios REMOTOS (fichero .txt), como antes
 // ==============================================================================
 $certificateItemsRemote = [];
-
 if (in_array('txt', $readModes)) {
     if (!file_exists($domainsFile)) {
         die("Error: el archivo de dominios '{$domainsFile}' no existe o no es válido.");
@@ -176,13 +168,12 @@ if (in_array('txt', $readModes)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Certificados</title>
-    <!-- Enlazamos la hoja de estilos externa -->
+    <!-- Referencia al CSS externo -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
 <div class="container">
-    <!-- Resumen de certificados -->
     <div class="summary" id="summary">
         <div class="summary-item total">
             <div id="totalCertificates">0</div>
@@ -202,7 +193,6 @@ if (in_array('txt', $readModes)) {
         </div>
     </div>
 
-    <!-- Comprobar URL manualmente -->
     <div class="url-check">
         <label for="urlInput">Comprobar URL:</label>
         <input type="text" id="urlInput" placeholder="https://example.com">
@@ -225,13 +215,14 @@ if (in_array('txt', $readModes)) {
             </tr>
         </thead>
 
-        <!-- Tbody para LOCALES (por categoría: RAIZ + subcarpetas) -->
+        <!-- Certificados locales -->
         <tbody id="tbodyLocal">
         <?php
         if (!empty($localCategories)) {
             echo "<tr><th colspan='4' style='background-color:#ccc;'>Certificados locales</th></tr>";
 
             foreach ($localCategories as $categoryName => $filePaths) {
+                // No mostramos encabezado si es la raíz
                 if ($categoryName !== 'RAIZ') {
                     echo "<tr class='category-header'><th colspan='4'>Categoría: {$categoryName}</th></tr>";
                 }
@@ -241,9 +232,10 @@ if (in_array('txt', $readModes)) {
                     continue;
                 }
 
+                // Llamamos a getLocalCertificateInfo pasando $config
                 foreach ($filePaths as $cerPath) {
                     $fileName = basename($cerPath);
-                    list($status, $expiryDate, $state) = getLocalCertificateInfo($cerPath);
+                    list($status, $expiryDate, $state) = getLocalCertificateInfo($cerPath, $config);
 
                     $total++;
                     if ($state === "valid")    $valid++;
@@ -263,13 +255,14 @@ if (in_array('txt', $readModes)) {
         ?>
         </tbody>
 
-        <!-- Tbody para REMOTOS (dominios .txt) -->
+        <!-- Certificados remotos -->
         <tbody id="tbodyRemote">
         <?php if (!empty($certificateItemsRemote)): ?>
             <tr><th colspan="4" style="background-color:#ccc;">Certificados remotos (dominios)</th></tr>
             <?php
             foreach ($certificateItemsRemote as $item) {
-                list($status, $expiryDate, $state) = getRemoteCertificateInfo($item['source']);
+                // Llamamos a getRemoteCertificateInfo pasando $config
+                list($status, $expiryDate, $state) = getRemoteCertificateInfo($item['source'], $config);
 
                 $total++;
                 if ($state === "valid")    $valid++;
@@ -293,6 +286,7 @@ if (in_array('txt', $readModes)) {
 </div>
 
 <script>
+    // Pintamos los contadores en la interfaz
     document.getElementById("totalCertificates").textContent    = <?php echo $total; ?>;
     document.getElementById("validCertificates").textContent    = <?php echo $valid; ?>;
     document.getElementById("expiringCertificates").textContent = <?php echo $expiring; ?>;

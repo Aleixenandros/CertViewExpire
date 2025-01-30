@@ -1,83 +1,84 @@
 <?php
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
+// Cargar config para obtener prox_expir
+$config = include 'config.php';
 
-    if (!isset($input['url']) || empty($input['url'])) {
-        echo json_encode(['error' => 'La URL no está especificada.']);
-        exit;
+// Leer JSON de la petición
+$input = json_decode(file_get_contents('php://input'), true);
+$url = $input['url'] ?? null;
+if (!$url) {
+    echo json_encode(['error' => 'No se recibió una URL.']);
+    exit;
+}
+
+// --- Función local para analizar el certificado remoto ---
+function checkRemoteCert($domain, $config)
+{
+    // Quitar "https://" si viniera y quedarnos con el host
+    $host = parse_url($domain, PHP_URL_HOST) ?: $domain;
+
+    $context = stream_context_create(["ssl" => ["capture_peer_cert" => true]]);
+    $fp = @stream_socket_client("ssl://{$host}:443", $errno, $errstr, 30, STREAM_CLIENT_CONNECT, $context);
+
+    if (!$fp) {
+        return ['error' => "No se pudo conectar a $domain: $errstr ($errno)"];
     }
 
-    $url = $input['url'];
-
-    // Validar formato de la URL
-    if (!filter_var($url, FILTER_VALIDATE_URL)) {
-        echo json_encode(['error' => 'El formato de la URL no es válido.']);
-        exit;
-    }
-
-    // Obtener la información del certificado
-    $streamContext = stream_context_create(["ssl" => ["capture_peer_cert" => true, "verify_peer" => false, "verify_peer_name" => false], "socket" => ["timeout" => 10]]);
-    $read = @stream_socket_client(
-        "ssl://" . parse_url($url, PHP_URL_HOST) . ":443",
-        $errno,
-        $errstr,
-        30,
-        STREAM_CLIENT_CONNECT,
-        $streamContext
-    );
-
-    if (!$read) {
-        echo json_encode(['error' => 'No se pudo conectar al servidor: ' . $errstr]);
-        exit;
-    }
-
-    $params = stream_context_get_params($read);
-    $cert = $params['options']['ssl']['peer_certificate'];
+    $params = stream_context_get_params($fp);
+    $cert   = $params['options']['ssl']['peer_certificate'] ?? null;
+    fclose($fp);
 
     if (!$cert) {
-        echo json_encode(['error' => 'No se pudo obtener el certificado.']);
-        exit;
+        return ['error' => 'No se pudo obtener el certificado remoto.'];
     }
 
-    // Analizar el certificado
-    $parsedCert = openssl_x509_parse($cert);
-
-    if (!$parsedCert) {
-        echo json_encode(['error' => 'No se pudo parsear el certificado.']);
-        exit;
+    $parsed = openssl_x509_parse($cert);
+    if (!isset($parsed['validTo_time_t'])) {
+        return ['error' => 'No se pudo obtener la fecha de caducidad.'];
     }
 
-    $validTo = date('d/m/Y', $parsedCert['validTo_time_t']);
-    $currentTimestamp = time();
-    $validToTimestamp = $parsedCert['validTo_time_t'];
-    $daysToExpire = ($validToTimestamp - $currentTimestamp) / (60 * 60 * 24);
+    $validToTimestamp = $parsed['validTo_time_t'];
+    $now = time();
+    $daysToExpire = ($validToTimestamp - $now) / (60 * 60 * 24);
+    $validTo = date('d/m/Y H:i:s', $validToTimestamp);
 
-    if ($validToTimestamp < $currentTimestamp) {
+    // Leer prox_expir
+    $umbral = $config['prox_expir'] ?? 45;
+
+    if ($validToTimestamp < $now) {
         $status = 'Caducado';
-    } elseif ($daysToExpire <= 45) {
+    } elseif ($daysToExpire <= $umbral) {
         $status = 'Próxima caducidad';
     } else {
         $status = 'Válido';
     }
 
-    // Extraer clave pública
-    $publicKey = openssl_pkey_get_details(openssl_pkey_get_public($cert));
+    // Exportar el cert y la clave pública
+    $pemCert = '';
+    openssl_x509_export($cert, $pemCert);
+    $certDetails = $pemCert;
 
-    if (!$publicKey) {
-        echo json_encode(['error' => 'No se pudo obtener la clave pública.']);
-        exit;
+    // Extraer la clave pública
+    $pubKey = openssl_pkey_get_public($pemCert);
+    $pubKeyDetails = '';
+    if ($pubKey) {
+        $pubKeyInfo = '';
+        openssl_pkey_export($pubKey, $pubKeyInfo);
+        $pubKeyDetails = $pubKeyInfo;
     }
 
-    echo json_encode([
-        'status' => $status,
-        'validTo' => $validTo,
-        'certificate' => openssl_x509_export($cert, $output) ? $output : 'No disponible',
-        'publicKey' => $publicKey['key'] ?? 'No disponible'
-    ]);
-} else {
-    echo json_encode(['error' => 'Método no permitido.']);
+    return [
+        'status'     => $status,
+        'validTo'    => $validTo,
+        'certificate'=> $certDetails,
+        'publicKey'  => $pubKeyDetails
+    ];
 }
-?>
+
+// --- Ejecutar la función ---
+$result = checkRemoteCert($url, $config);
+
+// Devolver JSON
+echo json_encode($result);
 

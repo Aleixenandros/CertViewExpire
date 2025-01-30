@@ -11,5 +11,8 @@ return [
     // Fichero de texto con un listado de dominios (uno por línea)
     // (solo se usa si read_mode='txt')
     'domains_file' => './certificados/domains.txt',
+    
+    // Días para considerar "próxima expiración"
+    'prox_expir' => 45,
 ];
 
