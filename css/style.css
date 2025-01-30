@@ -1,0 +1,118 @@
+.container {
+    width: 80%;
+    margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+    .container {
+        width: 100%;
+    }
+}
+
+.summary {
+    display: flex;
+    justify-content: space-around;
+    margin: 20px 0;
+}
+
+.summary-item {
+    text-align: center;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    flex: 1;
+    margin: 0 10px;
+}
+
+.summary-item.valid {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.summary-item.expiring {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.summary-item.expired {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.summary-item.total {
+    background-color: #e2e3e5;
+    color: #383d41;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+th, td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.expired td {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.expiring td {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.valid td {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.url-check {
+    margin: 20px 0;
+    padding: 10px;
+    border: 1px solid #ddd;
+    background-color: #f9f9f9;
+}
+
+.url-check input[type="text"] {
+    width: calc(100% - 120px);
+    padding: 8px;
+    margin-right: 10px;
+}
+
+.url-check button {
+    padding: 8px 15px;
+    cursor: pointer;
+}
+
+.url-result,
+.cert-details {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    background-color: #e9ecef;
+    white-space: pre-wrap;
+    display: none;
+}
+
+.action-buttons {
+    margin-top: 10px;
+}
+
+.action-buttons button {
+    margin-right: 10px;
+}
+
+/* Encabezado de categoría local */
+.category-header {
+    background-color: #eee;
+}
+

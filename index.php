@@ -91,35 +91,73 @@ function getRemoteCertificateInfo($domain)
     }
 }
 
-// 4. Separar los certificados en dos arrays distintos
-$certificateItemsLocal  = [];
-$certificateItemsRemote = [];
+// ==============================================================================
+// 4. Agrupar certificados LOCALES (carpeta raíz + subcarpetas)
+// ==============================================================================
 
-// 4a. Si en $readModes existe 'directory', leer archivos .cer
+$localCategories = []; 
+// Por convención, guardaremos los .cer de la carpeta raíz bajo la "categoría" 'RAIZ'
+$localCategories['RAIZ'] = [];
+
+// 4a. Si en $readModes existe 'directory', procesamos la carpeta base
 if (in_array('directory', $readModes)) {
     if (!is_dir($directory)) {
         die("Error: la carpeta '{$directory}' no existe o no es válida.");
     }
 
-    $files = array_diff(scandir($directory), ['.', '..']);
-    $cerFiles = array_filter($files, function($file) use ($directory) {
-        return pathinfo($directory . $file, PATHINFO_EXTENSION) === 'cer';
+    // 4a1. Buscar archivos .cer en la carpeta RAÍZ, sin meternos aún en subcarpetas
+    $rootItems = array_diff(scandir($directory), ['.', '..']);
+    // Filtrar .cer
+    $rootCer = array_filter($rootItems, function($f) use ($directory) {
+        // Ruta completa
+        $fullPath = $directory . DIRECTORY_SEPARATOR . $f;
+        return is_file($fullPath) 
+               && pathinfo($fullPath, PATHINFO_EXTENSION) === 'cer';
     });
 
-    foreach ($cerFiles as $file) {
-        $certificateItemsLocal[] = [
-            'display' => $file,
-            'source'  => $directory . DIRECTORY_SEPARATOR . $file,
-        ];
+    foreach ($rootCer as $cerFile) {
+        $fullPath = $directory . DIRECTORY_SEPARATOR . $cerFile;
+        $localCategories['RAIZ'][] = $fullPath; 
+    }
+
+    // 4a2. Buscar subcarpetas
+    foreach ($rootItems as $possibleDir) {
+        $subPath = $directory . DIRECTORY_SEPARATOR . $possibleDir;
+        if (!is_dir($subPath)) {
+            continue;
+        }
+        if ($possibleDir === '.' || $possibleDir === '..') {
+            continue;
+        }
+
+        // Nombre de la subcarpeta = categoría
+        $categoryName = $possibleDir;
+        $localCategories[$categoryName] = [];
+
+        // Buscar .cer dentro de la subcarpeta
+        $subItems = array_diff(scandir($subPath), ['.', '..']);
+        $cerInSub = array_filter($subItems, function($f) use ($subPath) {
+            $fp = $subPath . DIRECTORY_SEPARATOR . $f;
+            return is_file($fp) 
+                   && pathinfo($fp, PATHINFO_EXTENSION) === 'cer';
+        });
+
+        foreach ($cerInSub as $cerFile) {
+            $fullPath = $subPath . DIRECTORY_SEPARATOR . $cerFile;
+            $localCategories[$categoryName][] = $fullPath;
+        }
     }
 }
 
-// 4b. Si en $readModes existe 'txt', leer dominios de un fichero
+// ==============================================================================
+// 4b. Leer dominios REMOTOS (fichero .txt), como antes
+// ==============================================================================
+$certificateItemsRemote = [];
+
 if (in_array('txt', $readModes)) {
     if (!file_exists($domainsFile)) {
         die("Error: el archivo de dominios '{$domainsFile}' no existe o no es válido.");
     }
-
     $domains = file($domainsFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($domains as $domain) {
         $domain = trim($domain);
@@ -131,7 +169,6 @@ if (in_array('txt', $readModes)) {
         }
     }
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -139,100 +176,8 @@ if (in_array('txt', $readModes)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Certificados</title>
-    <style>
-        .container {
-            width: 80%;
-            margin: 0 auto;
-        }
-        @media (max-width: 768px) {
-            .container {
-                width: 100%;
-            }
-        }
-        .summary {
-            display: flex;
-            justify-content: space-around;
-            margin: 20px 0;
-        }
-        .summary-item {
-            text-align: center;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            flex: 1;
-            margin: 0 10px;
-        }
-        .summary-item.valid {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .summary-item.expiring {
-            background-color: #fff3cd;
-            color: #856404;
-        }
-        .summary-item.expired {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-        .summary-item.total {
-            background-color: #e2e3e5;
-            color: #383d41;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-        th, td {
-            padding: 10px;
-            border: 1px solid #ddd;
-            text-align: left;
-        }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        .expired td {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-        .expiring-soon td {
-            background-color: #fff3cd;
-            color: #856404;
-        }
-        .valid td {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .url-check {
-            margin: 20px 0;
-            padding: 10px;
-            border: 1px solid #ddd;
-            background-color: #f9f9f9;
-        }
-        .url-check input[type="text"] {
-            width: calc(100% - 120px);
-            padding: 8px;
-            margin-right: 10px;
-        }
-        .url-check button {
-            padding: 8px 15px;
-            cursor: pointer;
-        }
-        .url-result, .cert-details {
-            margin-top: 10px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            background-color: #e9ecef;
-            white-space: pre-wrap;
-            display: none;
-        }
-        .action-buttons {
-            margin-top: 10px;
-        }
-        .action-buttons button {
-            margin-right: 10px;
-        }
-    </style>
+    <!-- Enlazamos la hoja de estilos externa -->
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
@@ -270,7 +215,6 @@ if (in_array('txt', $readModes)) {
         </div>
     </div>
 
-    <!-- Tabla unificada -->
     <table id="certificatesTable">
         <thead>
             <tr>
@@ -281,32 +225,42 @@ if (in_array('txt', $readModes)) {
             </tr>
         </thead>
 
-        <!-- Tbody para LOCALES -->
+        <!-- Tbody para LOCALES (por categoría: RAIZ + subcarpetas) -->
         <tbody id="tbodyLocal">
-        <?php if (!empty($certificateItemsLocal)): ?>
-            <tr><th colspan="4" style="background-color:#ccc;">Certificados locales</th></tr>
-            <?php
-            // Listar cada .cer de la carpeta
-            foreach ($certificateItemsLocal as $item) {
-                list($status, $expiryDate, $state) = getLocalCertificateInfo($item['source']);
+        <?php
+        if (!empty($localCategories)) {
+            echo "<tr><th colspan='4' style='background-color:#ccc;'>Certificados locales</th></tr>";
 
-                // Actualizar contadores
-                $total++;
-                if ($state === "valid")    $valid++;
-                if ($state === "expiring") $expiring++;
-                if ($state === "expired")  $expired++;
+            foreach ($localCategories as $categoryName => $filePaths) {
+                if ($categoryName !== 'RAIZ') {
+                    echo "<tr class='category-header'><th colspan='4'>Categoría: {$categoryName}</th></tr>";
+                }
 
-                // Acción: mostrar contenido local
-                $buttonAction = "showCertificateContent('{$item['source']}')";
-                echo "<tr class=\"{$state}\">
-                        <td>{$item['display']}</td>
-                        <td>{$expiryDate}</td>
-                        <td>{$status}</td>
-                        <td><button onclick=\"{$buttonAction}\">Mostrar Certificado</button></td>
-                      </tr>";
+                if (empty($filePaths)) {
+                    echo "<tr><td colspan='4'><em>No hay archivos .cer en esta subcarpeta.</em></td></tr>";
+                    continue;
+                }
+
+                foreach ($filePaths as $cerPath) {
+                    $fileName = basename($cerPath);
+                    list($status, $expiryDate, $state) = getLocalCertificateInfo($cerPath);
+
+                    $total++;
+                    if ($state === "valid")    $valid++;
+                    if ($state === "expiring") $expiring++;
+                    if ($state === "expired")  $expired++;
+
+                    $buttonAction = "showCertificateContent('{$cerPath}')";
+                    echo "<tr class='{$state}'>
+                            <td>{$fileName}</td>
+                            <td>{$expiryDate}</td>
+                            <td>{$status}</td>
+                            <td><button onclick=\"{$buttonAction}\">Mostrar Certificado</button></td>
+                          </tr>";
+                }
             }
-            ?>
-        <?php endif; ?>
+        }
+        ?>
         </tbody>
 
         <!-- Tbody para REMOTOS (dominios .txt) -->
@@ -314,17 +268,14 @@ if (in_array('txt', $readModes)) {
         <?php if (!empty($certificateItemsRemote)): ?>
             <tr><th colspan="4" style="background-color:#ccc;">Certificados remotos (dominios)</th></tr>
             <?php
-            // Listar cada dominio del fichero
             foreach ($certificateItemsRemote as $item) {
                 list($status, $expiryDate, $state) = getRemoteCertificateInfo($item['source']);
 
-                // Actualizar contadores
                 $total++;
                 if ($state === "valid")    $valid++;
                 if ($state === "expiring") $expiring++;
                 if ($state === "expired")  $expired++;
 
-                // Acción: mostrar contenido remoto
                 $buttonAction = "showRemoteCertificateContent('{$item['source']}')";
                 echo "<tr class=\"{$state}\">
                         <td>{$item['display']}</td>
@@ -337,11 +288,11 @@ if (in_array('txt', $readModes)) {
         <?php endif; ?>
         </tbody>
     </table>
+
     <div id="certDetails" class="cert-details"></div>
 </div>
 
 <script>
-    // Mostrar contadores
     document.getElementById("totalCertificates").textContent    = <?php echo $total; ?>;
     document.getElementById("validCertificates").textContent    = <?php echo $valid; ?>;
     document.getElementById("expiringCertificates").textContent = <?php echo $expiring; ?>;
@@ -350,7 +301,6 @@ if (in_array('txt', $readModes)) {
     let urlCertificateDetails = "";
     let urlPublicKeyDetails   = "";
 
-    // Comprobar el certificado de una URL (check_certificate.php)
     async function checkCertificate() {
         const urlInput      = document.getElementById("urlInput").value;
         const resultDiv     = document.getElementById("urlResult");
@@ -394,7 +344,6 @@ if (in_array('txt', $readModes)) {
         }
     }
 
-    // Mostrar contenido de un certificado local (show_certificate.php)
     async function showCertificateContent(certPath) {
         const certDetailsDiv = document.getElementById("certDetails");
 
@@ -422,7 +371,6 @@ if (in_array('txt', $readModes)) {
         }
     }
 
-    // Mostrar contenido de un certificado remoto (show_remote_certificate.php)
     async function showRemoteCertificateContent(domain) {
         const certDetailsDiv = document.getElementById("certDetails");
 
@@ -440,7 +388,7 @@ if (in_array('txt', $readModes)) {
             if (result.error) {
                 certDetailsDiv.textContent = `Error: ${result.error}`;
             } else {
-                certDetailsDiv.textContent = result.certificate
+                certDetailsDiv.textContent = result.certificate 
                     || "No se pudo obtener el contenido del certificado remoto.";
             }
 
@@ -451,21 +399,18 @@ if (in_array('txt', $readModes)) {
         }
     }
 
-    // Mostrar detalles del certificado de la URL (check_certificate.php)
     function showCertificateDetails() {
         const certDetailsDiv = document.getElementById("certDetails");
         certDetailsDiv.textContent = urlCertificateDetails || "No hay detalles del certificado disponibles.";
         certDetailsDiv.style.display = "block";
     }
 
-    // Mostrar detalles de la clave pública (check_certificate.php)
     function showPublicKeyDetails() {
         const certDetailsDiv = document.getElementById("certDetails");
         certDetailsDiv.textContent = urlPublicKeyDetails || "No hay detalles de la clave pública disponibles.";
         certDetailsDiv.style.display = "block";
     }
 
-    // Limpiar resultados del checker manual
     function clearResults() {
         document.getElementById("urlResult").style.display    = "none";
         document.getElementById("urlResult").textContent      = "";
@@ -478,3 +423,4 @@ if (in_array('txt', $readModes)) {
 
 </body>
 </html>
+
