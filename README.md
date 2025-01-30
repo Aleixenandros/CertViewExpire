@@ -10,5 +10,4 @@ Aplicación en PHP para visualizar el estado de los certificados
 
 ## Requisitos
 
-- **PHP 7.4 o superior**
-- **Extensiones de PHP** `openssl`
+- `PHP 7.4 o superior y openssl`
