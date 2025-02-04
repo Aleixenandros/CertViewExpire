@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  certview:
+    image: php:8.3-cli
+    container_name: certview_app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/var/www/html
+    working_dir: /var/www/html
+    command: php -S 0.0.0.0:8000 -t /var/www/html
+
