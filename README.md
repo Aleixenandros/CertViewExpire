@@ -15,7 +15,8 @@ Aplicación en PHP para visualizar el estado de los certificados
 ## config.php
 
 En el config.php puedes configurar dónde está la carpeta de `certificados` si dónde se ubica el `dominios.txt`, si quieres que sólo muestre los certificados que hay en la carpeta, que muestre los certificados de los dominios que tienes en el `dominios.txt` o puedes elegir ambos.
-También puedes configurar la fecha de "próxima expiración", que por defecto está en 45: 'prox_expir => 45'
+
+También puedes configurar la fecha de "próxima expiración", que por defecto está en 45: `prox_expir => 45`
 
 ## Despliegue en docker
 
