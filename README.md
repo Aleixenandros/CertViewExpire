@@ -17,7 +17,7 @@ Aplicación en PHP para visualizar el estado de los certificados
 - `git clone https://github.com/Aleixenandros/CertViewExpire.git`
 - `docker compose up -d`
 
-Y accede por http://localhost:8000 o cambia el puerto en el docker compose por el que quieras. Si tienes más instancias docker, puedes crear un proxy inverso con nginx.
+Y accede por http://localhost:8000 o cambia el puerto en el `docker-compose.yml` por el que quieras. Si tienes más instancias docker, puedes crear un proxy inverso con nginx.
 
 
 
