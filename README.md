@@ -18,6 +18,10 @@ En el config.php puedes configurar dónde está la carpeta de `certificados` si 
 
 También puedes configurar la fecha de "próxima expiración", que por defecto está en 45: `prox_expir => 45`
 
+## api.php
+
+Se añade una api que muestra una salida en json para su integración con monitorización como por ejemplo zabbix
+
 ## Despliegue en docker
 
 - `git clone https://github.com/Aleixenandros/CertViewExpire.git`
