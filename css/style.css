@@ -1,118 +1,270 @@
-.container {
-    width: 80%;
-    margin: 0 auto;
+/* =========================
+   Reset y estilos globales
+========================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+html, body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f5f5;
 }
 
+/* =========================
+   Contenedor principal
+========================= */
+.container {
+    width: 80%;
+    margin: 20px auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
 @media (max-width: 768px) {
     .container {
-        width: 100%;
+        width: 95%;
     }
 }
 
+/* =========================
+   Topbar (barra superior)
+========================= */
+.topbar {
+    background: linear-gradient(45deg, #007bff, #0056b3);
+    color: #fff;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.topbar h2 {
+    margin: 0;
+    font-size: 20px;
+}
+.topbar a {
+    color: #fff;
+    text-decoration: none;
+    border: 1px solid #fff;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+.topbar a:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+/* =========================
+   Resumen (summary)
+========================= */
 .summary {
     display: flex;
     justify-content: space-around;
     margin: 20px 0;
 }
-
 .summary-item {
     text-align: center;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+    padding: 15px;
+    border: 1px solid #007bff;
+    border-radius: 8px;
     flex: 1;
     margin: 0 10px;
+    font-weight: 400;
 }
-
+.summary-item.total {
+    background-color: #e2e3e5;
+    color: #383d41;
+}
 .summary-item.valid {
     background-color: #d4edda;
     color: #155724;
 }
-
 .summary-item.expiring {
     background-color: #fff3cd;
     color: #856404;
 }
-
 .summary-item.expired {
     background-color: #f8d7da;
     color: #721c24;
 }
 
-.summary-item.total {
-    background-color: #e2e3e5;
-    color: #383d41;
-}
-
+/* =========================
+   Tablas
+========================= */
 table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     margin: 20px 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
-
 th, td {
-    padding: 10px;
-    border: 1px solid #ddd;
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
     text-align: left;
 }
-
+th {
+    background: #2a5f99;
+    color: #fff;
+    font-weight: 400;
+}
+td button {
+    padding: 5px 5px;
+    border: none;
+    border-radius: 4px;
+    background: #007bff;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+td button:hover {
+    background: #0056b3;
+}
 tr:nth-child(even) {
     background-color: #f9f9f9;
 }
-
+tr:last-child td {
+    border-bottom: none;
+}
+/* Estados en filas (se mantienen los colores por estado) */
 .expired td {
     background-color: #f8d7da;
     color: #721c24;
 }
-
 .expiring td {
     background-color: #fff3cd;
     color: #856404;
 }
-
 .valid td {
     background-color: #d4edda;
     color: #155724;
 }
 
+/* =========================
+   Sección de URL y resultados
+========================= */
 .url-check {
     margin: 20px 0;
+    padding: 15px;
+    border: 1px solid #007bff;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.url-check input[type="text"] {
+    width: calc(100% - 140px);
     padding: 10px;
     border: 1px solid #ddd;
-    background-color: #f9f9f9;
-}
-
-.url-check input[type="text"] {
-    width: calc(100% - 120px);
-    padding: 8px;
+    border-radius: 4px;
     margin-right: 10px;
 }
-
 .url-check button {
-    padding: 8px 15px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    background: #007bff;
+    color: #fff;
     cursor: pointer;
+    transition: background 0.3s;
 }
-
+.url-check button:hover {
+    background: #0056b3;
+}
 .url-result,
 .cert-details {
     margin-top: 10px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    background-color: #e9ecef;
+    padding: 15px;
+    border: 1px solid #007bff;
+    background-color: #f1f7fd;
+    border-radius: 8px;
     white-space: pre-wrap;
     display: none;
 }
 
+/* =========================
+   Botones de acción
+========================= */
 .action-buttons {
     margin-top: 10px;
 }
-
 .action-buttons button {
+    padding: 10px 20px;
     margin-right: 10px;
+    border: none;
+    border-radius: 4px;
+    background: #007bff;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+.action-buttons button:hover {
+    background: #0056b3;
 }
 
-/* Encabezado de categoría local */
+/* =========================
+   Encabezado de categoría local
+========================= */
 .category-header {
     background-color: #eee;
+    padding: 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    margin-top: 10px;
 }
 
+/* =========================
+   Estilos para la pantalla de login
+========================= */
+.login-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+.login-box {
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    width: 350px;
+}
+.login-box h2 {
+    margin-bottom: 20px;
+    color: #333;
+    text-align: center;
+}
+.login-box label {
+    display: block;
+    margin: 10px 0 5px;
+    color: #555;
+}
+.login-box input[type="text"],
+.login-box input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    outline: none;
+}
+.login-box button {
+    width: 100%;
+    padding: 10px;
+    background: #007bff;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 16px;
+    margin-top: 15px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+.login-box button:hover {
+    background: #0056b3;
+}
+.error {
+    color: red;
+    text-align: center;
+    margin-bottom: 15px;
+}

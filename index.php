@@ -2,6 +2,12 @@
 // 1. Cargar la configuración
 $config = include 'config.php';
 
+// Si se usa LDAP y no hay usuario autenticado, redirige a login.php
+if ($config['login_method'] === 'LDAP' && (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true)) {
+    header("Location: login.php");
+    exit;
+}
+
 // 2. Obtener parámetros
 $readModes   = $config['read_mode']      ?? ['directory'];
 $directory   = $config['cert_directory'] ?? 'certificados/';
@@ -172,6 +178,17 @@ if (in_array('txt', $readModes)) {
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+
+    <?php
+    // Mostrar el mensaje de bienvenida y enlace de logout solo si se usa LDAP y el usuario está autenticado
+    if ($config['login_method'] === 'LDAP' && isset($_SESSION['username'])) {
+        
+	echo '<header class="topbar">';
+	echo "Bienvenido, " . htmlspecialchars($_SESSION['username']);
+        echo '<a href="logout.php">Salir</a>';
+	echo "</header>";
+    }
+    ?>
 
 <div class="container">
     <div class="summary" id="summary">

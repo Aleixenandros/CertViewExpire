@@ -12,6 +12,14 @@ return [
     // (solo se usa si read_mode='txt')
     'domains_file' => './certificados/dominios.txt',
     
+    // Autenticación por LDAP
+    'login_method' => 'NO', // Opciones: 'LDAP' o 'NO'
+    'ldap' => [
+        'server'   => 'ldap://ldap.ejemplo.com',
+        'port'     => 389,
+        'base_dn'  => 'dc=ejemplo,dc=es',
+        'user_dn'  => 'ou=usuarios'
+		],
     // Días para considerar "próxima expiración"
     'prox_expir' => 45,
 ];
