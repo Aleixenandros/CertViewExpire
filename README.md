@@ -29,7 +29,7 @@ Se añade una api que muestra una salida en json para su integración con monito
 
 Y accede por http://localhost:8000 o cambia el puerto en el `docker-compose.yml` por el que quieras. Si tienes más instancias docker, puedes crear un proxy inverso con nginx.
 
+![image](https://github.com/user-attachments/assets/906eb9b4-84a4-41fa-994b-945a5fa09131)
 
 
-![image](https://github.com/user-attachments/assets/089b81ba-f093-4d2f-9d9b-0b1056cfc42d)
-
+![image](https://github.com/user-attachments/assets/34b13e34-cf45-4429-b994-3e9b59b2d65f)
